@@ -18,6 +18,7 @@ import { theme } from "styles/theme";
 import { px2rem } from "styles/utils";
 import { formatDateToddMMMM } from "utils/date";
 import Share from "components/Share";
+import fetchAllUids from "services/prismic/fetchAllUids";
 
 type NewsDetailsPageProps = {
     news: NewsNode;
@@ -175,6 +176,10 @@ export const getStaticProps = async ({ params }) => {
             `,
         });
 
+        if (!response.data.news) {
+            return { notFound: true };
+        }
+
         return {
             props: {
                 news: response.data.news,
@@ -188,27 +193,13 @@ export const getStaticProps = async ({ params }) => {
 };
 
 export const getStaticPaths = async () => {
-    const response = await client.query<{ allNewss: IdsNode }>({
-        query: gql`
-           query {
-              allNewss(sortBy: meta_firstPublicationDate_DESC) {
-                edges {
-                  node {
-                    _meta {
-                      uid
-                    }
-                  }
-                }
-              }
-            }
-        `,
-    });
+    const uids = await fetchAllUids("allNewss", "meta_firstPublicationDate_DESC");
 
     return {
-        paths: response.data.allNewss.edges.map(e => ({
-            params: { newsId: e.node._meta.uid },
+        paths: uids.map(uid => ({
+            params: { newsId: uid },
         })),
-        fallback: false,
+        fallback: "blocking",
     };
 };
 

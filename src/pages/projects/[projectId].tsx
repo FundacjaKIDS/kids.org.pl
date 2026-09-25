@@ -19,6 +19,7 @@ import styled from "styled-components";
 import { px2rem } from "styles/utils";
 import Share from "components/Share";
 import fetchDonations, { TPayProjectDonations } from "services/tpay";
+import fetchAllUids from "services/prismic/fetchAllUids";
 
 type ProjectDetailsPageProps = {
     project: ProjectNode;
@@ -173,7 +174,7 @@ const MembersContainer = styled.div`
     padding-top: ${px2rem(20)};
 `;
 
-export const getStaticProps: GetStaticProps = async ({ params }): Promise<{ props: ProjectDetailsPageProps }> => {
+export const getStaticProps: GetStaticProps<ProjectDetailsPageProps> = async ({ params }) => {
     try {
         const projectId = params?.projectId instanceof Array ? params?.projectId[0] : params?.projectId;
 
@@ -250,6 +251,11 @@ export const getStaticProps: GetStaticProps = async ({ params }): Promise<{ prop
         });
 
         const project = response.data.project;
+
+        if (!project) {
+            return { notFound: true };
+        }
+
         const projectMetaId = project?._meta?.id;
         let donations: TPayProjectDonations | null = null;
 
@@ -276,27 +282,13 @@ export const getStaticProps: GetStaticProps = async ({ params }): Promise<{ prop
 };
 
 export const getStaticPaths = async () => {
-    const response = await client.query<{ allProjects: IdsNode }>({
-        query: gql`
-           query {
-              allProjects {
-                edges {
-                  node {
-                    _meta {
-                      uid
-                    }
-                  }
-                }
-              }
-            }
-        `,
-    });
+    const uids = await fetchAllUids("allProjects");
 
     return {
-        paths: response.data.allProjects.edges.map(e => ({
-            params: { projectId: e.node._meta.uid },
+        paths: uids.map(uid => ({
+            params: { projectId: uid },
         })),
-        fallback: false,
+        fallback: "blocking",
     };
 };
 
